@@ -17,3 +17,6 @@ the debugger immediate window. There are other solutions for sure.
 - pnputil is a life saver a lot of the time. It's a utility to do a lot of usefull stuff with PNP devices. You can enumerate them, desinstall the driver, disable a device,
 restart a device etc... just remote into your target computer and use pnputil in an admin command prompt.
 - It seems like auto provisioning is unable to uninstall the driver a lot of the time (Maybe because of PnpLockdown ?). pnputil can help here too. Didn't find a satisfying solution yet.
+
+# FPGA design
+I have a very simple design for now, that just does memory DMA. Probably gonna share that at some point, just need to figure out a simple way to do it without too much hassle with the generated IPs.
