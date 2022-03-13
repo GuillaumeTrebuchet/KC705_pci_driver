@@ -1,0 +1,78 @@
+;
+; KC705_pci_driver.inf
+;
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=System ; TODO: specify appropriate Class
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318} ; TODO: specify appropriate ClassGuid
+Provider=%ManufacturerName%
+CatalogFile=KC705_pci_driver.cat
+DriverVer= ; TODO: set DriverVer in stampinf property pages
+PnpLockdown=0
+
+[DestinationDirs]
+DefaultDestDir = 12
+KC705_pci_driver_Device_CoInstaller_CopyFiles = 11
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+KC705_pci_driver.sys  = 1,,
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with SourceDisksNames
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName%=Standard,NT$ARCH$
+
+[Standard.NT$ARCH$]
+%KC705_pci_driver.DeviceDesc%=KC705_pci_driver_Device, PCI\VEN_10EE&DEV_7018&SUBSYS_000710EE&REV_00
+;KC705_pci_driver_Device, Root\KC705_pci_driver ; TODO: edit hw-id
+
+[KC705_pci_driver_Device.NT]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+KC705_pci_driver.sys
+
+;-------------- Service installation
+[KC705_pci_driver_Device.NT.Services]
+AddService = KC705_pci_driver,%SPSVCINST_ASSOCSERVICE%, KC705_pci_driver_Service_Inst
+
+; -------------- KC705_pci_driver driver install sections
+[KC705_pci_driver_Service_Inst]
+DisplayName    = %KC705_pci_driver.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\KC705_pci_driver.sys
+
+;
+;--- KC705_pci_driver_Device Coinstaller installation ------
+;
+
+[KC705_pci_driver_Device.NT.CoInstallers]
+AddReg=KC705_pci_driver_Device_CoInstaller_AddReg
+CopyFiles=KC705_pci_driver_Device_CoInstaller_CopyFiles
+
+[KC705_pci_driver_Device_CoInstaller_AddReg]
+HKR,,CoInstallers32,0x00010000, "WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll,WdfCoInstaller"
+
+[KC705_pci_driver_Device_CoInstaller_CopyFiles]
+WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll
+
+[KC705_pci_driver_Device.NT.Wdf]
+KmdfService =  KC705_pci_driver, KC705_pci_driver_wdfsect
+[KC705_pci_driver_wdfsect]
+KmdfLibraryVersion = $KMDFVERSION$
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+ManufacturerName="MyManufacturer" ;TODO: Replace with your manufacturer name
+DiskName = "KC705_pci_driver Installation Disk"
+KC705_pci_driver.DeviceDesc = "KC705_pci_driver Device"
+KC705_pci_driver.SVCDESC = "KC705_pci_driver Service"
