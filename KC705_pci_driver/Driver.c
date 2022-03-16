@@ -100,19 +100,31 @@ NTSTATUS KC705pcidriverEvtDevicePrepareHardware(
     _In_ WDFCMRESLIST ResourcesTranslated
 )
 {
-    UNREFERENCED_PARAMETER(Device);
-    UNREFERENCED_PARAMETER(ResourcesRaw);
+    PDEVICE_CONTEXT deviceContext = DeviceGetContext(Device);
 
+    // Map BARs memory into memory space
     for (ULONG i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++)
     {
-
         PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptor = WdfCmResourceListGetDescriptor(ResourcesTranslated, i);
+        PCM_PARTIAL_RESOURCE_DESCRIPTOR descriptorraw = WdfCmResourceListGetDescriptor(ResourcesRaw, i);
+        UNREFERENCED_PARAMETER(descriptorraw);
+
+        if (descriptor->Type == CmResourceTypeMemory)
+        {
+            deviceContext->MemPhysAddress = descriptor->u.Memory.Start;
+            deviceContext->MemSize = descriptor->u.Memory.Length;
+            deviceContext->MemMappedAddress = MmMapIoSpaceEx(descriptor->u.Memory.Start, descriptor->u.Memory.Length, PAGE_READWRITE | PAGE_NOCACHE);
+            deviceContext->Registers = (PKC705_REGISTERS)deviceContext->MemMappedAddress;
+            break; // just use the 1st BAR
+        }
+
 
         if (!descriptor) {
             TraceEvents(TRACE_LEVEL_ERROR, TRACE_DRIVER, "WdfResourceCmGetDescriptor");
             return STATUS_DEVICE_CONFIGURATION_ERROR;
         }
     }
+
     return STATUS_SUCCESS;
 }
 NTSTATUS KC705pcidriverEvtDeviceReleaseHardware(
@@ -120,8 +132,15 @@ NTSTATUS KC705pcidriverEvtDeviceReleaseHardware(
     _In_ WDFCMRESLIST ResourcesTranslated
 )
 {
-    UNREFERENCED_PARAMETER(Device);
+    //UNREFERENCED_PARAMETER(Device);
     UNREFERENCED_PARAMETER(ResourcesTranslated);
+
+    PDEVICE_CONTEXT deviceContext = DeviceGetContext(Device);
+    if (deviceContext->MemMappedAddress != 0)
+    {
+        MmUnmapIoSpace(deviceContext->MemMappedAddress, deviceContext->MemSize);
+        deviceContext->MemMappedAddress = 0;
+    }
     return STATUS_SUCCESS;
 }
 NTSTATUS
@@ -156,13 +175,13 @@ Return Value:
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "%!FUNC! Entry");
 
-    status = KC705pcidriverCreateDevice(DeviceInit);
-
     WDF_PNPPOWER_EVENT_CALLBACKS    pnpPowerCallbacks;
     WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
     pnpPowerCallbacks.EvtDevicePrepareHardware = KC705pcidriverEvtDevicePrepareHardware;
     pnpPowerCallbacks.EvtDeviceReleaseHardware = KC705pcidriverEvtDeviceReleaseHardware;
     WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
+
+    status = KC705pcidriverCreateDevice(DeviceInit);
 
     TraceEvents(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "%!FUNC! Exit");
 

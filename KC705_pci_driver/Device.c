@@ -21,6 +21,18 @@ Environment:
 #pragma alloc_text (PAGE, KC705pcidriverCreateDevice)
 #endif
 
+BOOLEAN KC705pcidriverInterruptISR(_In_ WDFINTERRUPT Interrupt, _In_ ULONG MessageID)
+{
+    UNREFERENCED_PARAMETER(MessageID);
+    return WdfInterruptQueueDpcForIsr(Interrupt);
+}
+VOID KC705pcidriverInterruptDPC(_In_ WDFINTERRUPT Interrupt, _In_ WDFOBJECT AssociatedObject)
+{
+    UNREFERENCED_PARAMETER(AssociatedObject);
+    PDEVICE_CONTEXT deviceContext = DeviceGetContext(WdfInterruptGetDevice(Interrupt));
+    WdfDmaTransactionRelease(deviceContext->DmaTransaction);
+}
+
 NTSTATUS
 KC705pcidriverCreateDevice(
     _Inout_ PWDFDEVICE_INIT DeviceInit
@@ -143,5 +155,35 @@ Return Value:
     }
     UNREFERENCED_PARAMETER(pPciConfig);
 
+    // dont really care about that
+    WdfDeviceSetAlignmentRequirement(device, FILE_BYTE_ALIGNMENT);
+
+    // create DMA enabler
+    WDF_DMA_ENABLER_CONFIG dma_enabler_config;
+    WDF_DMA_ENABLER_CONFIG_INIT(&dma_enabler_config, WdfDmaProfilePacket64, 0x10000);
+    status = WdfDmaEnablerCreate(device, &dma_enabler_config, NULL, &deviceContext->DmaEnabler);
+    if (status != STATUS_SUCCESS)
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaEnablerCreate failed");
+        return status;
+    }
+
+    // Lets just use a single transation object
+    status = WdfDmaTransactionCreate(deviceContext->DmaEnabler, WDF_NO_OBJECT_ATTRIBUTES, &deviceContext->DmaTransaction);
+    if (status != STATUS_SUCCESS)
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfDmaTransactionCreate failed");
+        return status;
+    }
+
+    // Create an interrupt for MSI
+    WDF_INTERRUPT_CONFIG interrupt_config;
+    WDF_INTERRUPT_CONFIG_INIT(&interrupt_config, &KC705pcidriverInterruptISR, &KC705pcidriverInterruptDPC);
+    status = WdfInterruptCreate(device, &interrupt_config, WDF_NO_OBJECT_ATTRIBUTES, &deviceContext->Interrupt);
+    if (status != STATUS_SUCCESS)
+    {
+        TraceEvents(TRACE_LEVEL_ERROR, TRACE_DEVICE, "WdfInterruptCreate failed");
+        return status;
+    }
     return status;
 }

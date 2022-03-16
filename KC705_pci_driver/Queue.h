@@ -36,6 +36,8 @@ KC705pcidriverQueueInitialize(
 //
 // Events from the IoQueue object
 //
+EVT_WDF_IO_QUEUE_IO_READ KC705pcidriverEvtIoRead;
+EVT_WDF_IO_QUEUE_IO_WRITE KC705pcidriverEvtIoWrite;
 EVT_WDF_IO_QUEUE_IO_DEVICE_CONTROL KC705pcidriverEvtIoDeviceControl;
 EVT_WDF_IO_QUEUE_IO_STOP KC705pcidriverEvtIoStop;
 

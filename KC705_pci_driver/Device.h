@@ -18,6 +18,15 @@ Environment:
 
 EXTERN_C_START
 
+typedef struct
+{
+    ULONG Leds;
+    LARGE_INTEGER DmaSrcAddress;
+    LARGE_INTEGER DmaDstAddress;
+    ULONG DmaLength;
+    ULONG DmaStatus;
+} KC705_REGISTERS, * PKC705_REGISTERS;
+
 //
 // The device context performs the same job as
 // a WDM device extension in the driver frameworks
@@ -26,6 +35,13 @@ typedef struct _DEVICE_CONTEXT
 {
     ULONG PrivateDeviceData;  // just a placeholder
     BUS_INTERFACE_STANDARD BusInterface;
+    PHYSICAL_ADDRESS MemPhysAddress;
+    ULONG MemSize;
+    PVOID MemMappedAddress;
+    WDFDMAENABLER DmaEnabler;
+    WDFDMATRANSACTION DmaTransaction;
+    WDFINTERRUPT Interrupt;
+    PKC705_REGISTERS Registers;
 } DEVICE_CONTEXT, *PDEVICE_CONTEXT;
 
 //

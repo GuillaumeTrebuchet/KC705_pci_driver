@@ -62,6 +62,8 @@ Return Value:
         WdfIoQueueDispatchParallel
         );
 
+    queueConfig.EvtIoRead = KC705pcidriverEvtIoRead;
+    queueConfig.EvtIoWrite = KC705pcidriverEvtIoWrite;
     queueConfig.EvtIoDeviceControl = KC705pcidriverEvtIoDeviceControl;
     queueConfig.EvtIoStop = KC705pcidriverEvtIoStop;
 
@@ -80,6 +82,70 @@ Return Value:
     return status;
 }
 
+BOOLEAN
+KC705pcidriverEvtProgramDMA(
+    _In_
+    WDFDMATRANSACTION Transaction,
+    _In_
+    WDFDEVICE Device,
+    _In_
+    WDFCONTEXT Context,
+    _In_
+    WDF_DMA_DIRECTION Direction,
+    _In_
+    PSCATTER_GATHER_LIST SgList
+)
+{
+    UNREFERENCED_PARAMETER(Transaction);
+    UNREFERENCED_PARAMETER(Device);
+    UNREFERENCED_PARAMETER(Context);
+    UNREFERENCED_PARAMETER(Direction);
+    UNREFERENCED_PARAMETER(SgList);
+    return TRUE;
+}
+VOID KC705pcidriverEvtIoRead(
+    _In_ WDFQUEUE Queue,
+    _In_ WDFREQUEST Request,
+    _In_ size_t Length
+)
+{
+
+    TraceEvents(TRACE_LEVEL_INFORMATION,
+        TRACE_QUEUE,
+        "%!FUNC! Queue 0x%p, Request 0x%p Length %d",
+        Queue, Request, (int)Length);
+
+    /*WDFDEVICE device = WdfIoQueueGetDevice(Queue);
+    PDEVICE_CONTEXT deviceContext = DeviceGetContext(device);
+
+    NTSTATUS status = WdfDmaTransactionInitializeUsingRequest(deviceContext->DmaTransaction, Request, KC705pcidriverEvtProgramDMA, WdfDmaDirectionReadFromDevice);
+    if (status != STATUS_SUCCESS)
+    {
+        WdfRequestComplete(Request, status);
+        return;
+    }
+
+    status = WdfDmaTransactionExecute(deviceContext->DmaTransaction, WDF_NO_CONTEXT);*/
+
+    WdfRequestComplete(Request, STATUS_UNSUCCESSFUL);
+}
+VOID KC705pcidriverEvtIoWrite(
+    _In_ WDFQUEUE Queue,
+    _In_ WDFREQUEST Request,
+    _In_ size_t Length
+)
+{
+
+    TraceEvents(TRACE_LEVEL_INFORMATION,
+        TRACE_QUEUE,
+        "%!FUNC! Queue 0x%p, Request 0x%p Length %d",
+        Queue, Request, (int)Length);
+
+    //WdfDmaTransactionInitializeUsingRequest()
+
+    WdfRequestComplete(Request, STATUS_UNSUCCESSFUL);
+
+}
 VOID
 KC705pcidriverEvtIoDeviceControl(
     _In_ WDFQUEUE Queue,
