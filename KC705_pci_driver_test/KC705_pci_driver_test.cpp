@@ -2,6 +2,7 @@
 //
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -75,8 +76,34 @@ HANDLE CreateDevice()
 int main()
 {
 	HANDLE h = CreateDevice();
+    if (!h)
+    {
+        std::cout << "CreateDevice failed" << std::endl;
+        return 1;
+    }
+    std::cout << "Created device successfully, handle: 0x" << std::hex << std::setfill('0') << h << std::endl;
+    
+    uint64_t size = 0x100;
+    std::vector<BYTE> buffer(size);
+    DWORD BytesRead = 0;
+
+    BOOL b = ReadFile(h, buffer.data(), size, &BytesRead, NULL);
+    std::cout << "ReadFile 0x" << size
+        << " bytes, result: " << (bool)b << ", bytes read: 0x"
+        << BytesRead << std::endl;
+
+    for (uint64_t i = 0; i < size;)
+    {
+        uint64_t count = min(i + 16, size);
+        for (; i < count; ++i)
+        {
+            std::cout << std::setw(2) << (int)buffer[i] << " ";
+        }
+        std::cout << std::endl;
+    }
 
     CloseHandle(h);
+    std::cout << "Done." << std::endl;
 	return 0;
 }
 
