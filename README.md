@@ -19,4 +19,19 @@ restart a device etc... just remote into your target computer and use pnputil in
 - It seems like auto provisioning is unable to uninstall the driver a lot of the time (Maybe because of PnpLockdown ?). pnputil can help here too. Didn't find a satisfying solution yet.
 
 # FPGA design
-I have a very simple design for now, that just does memory DMA. Probably gonna share that at some point, just need to figure out a simple way to do it without too much hassle with the generated IPs.
+I originally wanted to use system-mode DMA because it simplifies the design quite a bit, but I had trouble making it work. The documentation states that it's available for SOC, so I'm not sure if that is possible with x86. Anyway, right now the design looks as follow. There is no DMA for now, just memory maps registers.
+  
+<img align="left" src="images/design_1.png">
+  
+Register map:  
+| Address      | Description |
+|--------------|:------------|
+| 00000000 |  leds, only the 1st byte is meaningfull |
+| 00000004 |  DMA src address high  |
+| 00000008 |  DMA src address low  |
+| 0000000C |  DMA dst address high  |
+| 00000010 |  DMA dst address low  |
+| 00000014 |  DMA length  |
+| 00000018 |  DMA status  |
+| 00000020 - 000001FC |  unused  |
+The DMA registers are not used for now. 
