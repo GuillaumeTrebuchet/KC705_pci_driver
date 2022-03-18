@@ -34,4 +34,5 @@ Register map:
 | 00000014 |  DMA length  |
 | 00000018 |  DMA status  |
 | 00000020 - 000001FC |  unused  |
+  
 The DMA registers are not used for now. 
