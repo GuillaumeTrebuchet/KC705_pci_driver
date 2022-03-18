@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <string>
 #include <vector>
+#include <sstream>
 
 #include <Windows.h>
 #include <setupapi.h>
@@ -73,6 +74,75 @@ HANDLE CreateDevice()
 	return NULL;
 }
 
+void readmem(HANDLE h, int size)
+{
+    std::vector<BYTE> buffer(size);
+    DWORD BytesRead = 0;
+
+    BOOL b = ReadFile(h, buffer.data(), size, &BytesRead, NULL);
+    std::cout << "ReadFile 0x" << size
+        << " bytes, result: " << (bool)b << ", bytes read: 0x"
+        << BytesRead << std::endl;
+
+    for (int i = 0; i < BytesRead;)
+    {
+        int count = min(i + 16, BytesRead);
+        for (; i < count; ++i)
+        {
+            std::cout << std::setw(2) << (int)buffer[i] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+#define KC705_IOCTRL_WRITE_REG 0x1
+#define KC705_IOCTRL_READ_REG 0x2
+
+struct KC705_WRITE_REG_DATA
+{
+    uint64_t address;
+    uint32_t value;
+};
+void writereg(HANDLE h, uint64_t address, uint32_t value)
+{
+    KC705_WRITE_REG_DATA data = { 0 };
+    data.address = address;
+    data.value = value;
+    DWORD BytesReturned = 0;
+    BOOL b = DeviceIoControl(h, KC705_IOCTRL_WRITE_REG, &data, sizeof(data), NULL, 0, &BytesReturned, NULL);
+    std::cout << "return value: " << (bool)b << std::endl;
+}
+
+std::vector<std::string> GetCommandParams()
+{
+    std::vector<std::string> cmd;
+    std::string s;
+    std::getline(std::cin, s);
+    std::stringstream ss(s);
+    while (!ss.eof())
+    {
+        std::string s;
+        ss >> s;
+        if (s.size()) // if input is "   " s is empty
+            cmd.push_back(s);
+    }
+    return cmd;
+}
+
+bool ToUInt64(const std::string& s, uint64_t* p)
+{
+    uint64_t u = 0;
+    size_t idx = 0;
+    if (s.size() > 2 && s.substr(0, 2) == "0x")
+    {
+        u = std::stoull(s.substr(2), &idx, 16);
+        idx += 2;
+    }
+    else
+        u = std::stoull(s, &idx, 10);
+
+    *p = u;
+    return idx == s.size();
+}
 int main()
 {
 	HANDLE h = CreateDevice();
@@ -83,37 +153,75 @@ int main()
     }
     std::cout << "Created device successfully, handle: 0x" << std::hex << std::setfill('0') << h << std::endl;
     
-    uint64_t size = 0x100;
-    std::vector<BYTE> buffer(size);
-    DWORD BytesRead = 0;
-
-    BOOL b = ReadFile(h, buffer.data(), size, &BytesRead, NULL);
-    std::cout << "ReadFile 0x" << size
-        << " bytes, result: " << (bool)b << ", bytes read: 0x"
-        << BytesRead << std::endl;
-
-    for (uint64_t i = 0; i < size;)
+    while (true)
     {
-        uint64_t count = min(i + 16, size);
-        for (; i < count; ++i)
+        std::cout << "enter command (h for help):" << std::endl;
+        auto params = GetCommandParams();
+        if (params.size() == 0)
+            continue;
+
+        std::string cmd = params[0];
+        if (cmd == "h")
         {
-            std::cout << std::setw(2) << (int)buffer[i] << " ";
+            std::cout << "readmem <size> (read <size> bytes from the device's memory)" << std::endl;
+            std::cout << "writereg <address> <value> (write the given value to the register at address)" << std::endl;
+            std::cout << "exit (close the application)" << std::endl;
         }
-        std::cout << std::endl;
+        else if (cmd == "exit")
+        {
+            break;
+        }
+        else if(cmd == "readmem")
+        {
+            if (params.size() != 2)
+            {
+                std::cout << "wrong args" << std::endl;
+                continue;
+            }
+
+            uint64_t size = 0;
+            if (!ToUInt64(params[1], &size))
+            {
+                std::cout << "unable to read size" << std::endl;
+                continue;
+            }
+            if (size <= 0 || size >= 0x10000)
+            {
+                std::cout << "size must be between 0 and 0x10000" << std::endl;
+                continue;
+            }
+
+            readmem(h, size);
+        }
+        else if (cmd == "writereg")
+        {
+            if (params.size() != 3)
+            {
+                std::cout << "wrong args" << std::endl;
+                continue;
+            }
+
+            uint64_t address = 0;
+            if (!ToUInt64(params[1], &address) || address >= 0x100)
+            {
+                std::cout << "wrong address" << std::endl;
+                continue;
+            }
+            uint64_t value = 0;
+            if (!ToUInt64(params[2], &value) || value > 0xFFFFFFFF)
+            {
+                std::cout << "wrong value" << std::endl;
+                continue;
+            }
+            writereg(h, address, value);
+        }
+        else
+        {
+            std::cout << "unknown command" << std::endl;
+        }
     }
 
     CloseHandle(h);
     std::cout << "Done." << std::endl;
 	return 0;
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
