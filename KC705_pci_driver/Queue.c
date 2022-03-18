@@ -21,6 +21,15 @@ Environment:
 #pragma alloc_text (PAGE, KC705pcidriverQueueInitialize)
 #endif
 
+#define KC705_IOCTRL_WRITE_REG 0x1
+#define KC705_IOCTRL_READ_REG 0x2
+
+typedef struct 
+{
+    ULONGLONG address;
+    ULONG value;
+} KC705_WRITE_REG_DATA, * PKC705_WRITE_REG_DATA;
+
 NTSTATUS
 KC705pcidriverQueueInitialize(
     _In_ WDFDEVICE Device
@@ -154,37 +163,48 @@ KC705pcidriverEvtIoDeviceControl(
     _In_ size_t InputBufferLength,
     _In_ ULONG IoControlCode
     )
-/*++
-
-Routine Description:
-
-    This event is invoked when the framework receives IRP_MJ_DEVICE_CONTROL request.
-
-Arguments:
-
-    Queue -  Handle to the framework queue object that is associated with the
-             I/O request.
-
-    Request - Handle to a framework request object.
-
-    OutputBufferLength - Size of the output buffer in bytes
-
-    InputBufferLength - Size of the input buffer in bytes
-
-    IoControlCode - I/O control code.
-
-Return Value:
-
-    VOID
-
---*/
 {
     TraceEvents(TRACE_LEVEL_INFORMATION, 
                 TRACE_QUEUE, 
                 "%!FUNC! Queue 0x%p, Request 0x%p OutputBufferLength %d InputBufferLength %d IoControlCode %d", 
                 Queue, Request, (int) OutputBufferLength, (int) InputBufferLength, IoControlCode);
 
-    WdfRequestComplete(Request, STATUS_SUCCESS);
+    WDFDEVICE device = WdfIoQueueGetDevice(Queue);
+    PDEVICE_CONTEXT deviceContext = DeviceGetContext(device);
+
+    WDF_REQUEST_PARAMETERS params;
+    WDF_REQUEST_PARAMETERS_INIT(&params);
+    WdfRequestGetParameters(Request, &params);
+
+    NTSTATUS status = STATUS_SUCCESS;
+
+    switch (params.Parameters.DeviceIoControl.IoControlCode)
+    {
+    case KC705_IOCTRL_WRITE_REG:
+    {
+        PKC705_WRITE_REG_DATA data = NULL;
+        status = WdfRequestRetrieveInputBuffer(Request, sizeof(KC705_WRITE_REG_DATA), &data, NULL);
+        if (!NT_SUCCESS(status))
+        {
+            WdfRequestComplete(Request, status);
+            return;
+        }
+        // If we actually have a power of 2 registers on the device, the address on the AXI bus would just wrap around if OOB
+        // if not I don't really know what happens... the write would probably fail, IDK how the CPU would react to that
+        if (data->address > 0x100)
+        {
+            WdfRequestComplete(Request, STATUS_INVALID_PARAMETER);
+            return;
+        }
+
+        WRITE_REGISTER_BUFFER_ULONG((ULONG*)deviceContext->Registers, &data->value, 1);
+        WdfRequestComplete(Request, STATUS_SUCCESS);
+        break;
+    }
+    default:
+        WdfRequestComplete(Request, STATUS_UNSUCCESSFUL);
+        return;
+    }
 
     return;
 }
