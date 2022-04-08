@@ -40,7 +40,3 @@ The DMA registers are not used for now.
 # Vivado project
 The hardware design is located in KC705_pci_hardware. It is shared in the form of a tcl script that regenerate the project.
 Just run "source pci_test.tcl" in a tcl command prompt to regenerate it. To update it use vivado File -> Project -> Write tcl, then remove absolute paths in the tcl file. 
-# Known issues
-There is a timing issue in the hardware design, most likely because the reset in pci_dma_controller2 and such comes from proc_sys_reset but the clock comes from the pcie block. Its not good but the design works anyway. I should use another processor reset block to make sure the reset and clock are synchronous. But we are not even supposed to use the AXI clock for anything else than the AXI interface anyway.
-  
-I think the recommanded way is that the rest of the design uses it's own clock then use an AXI interconnect for the synchronization. Will do that when I have the time.
