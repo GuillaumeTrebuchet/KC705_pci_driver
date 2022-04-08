@@ -49,6 +49,8 @@ entity pcie_design_top is
 		SYSCLK_P : in std_logic;
 		SYSCLK_N : in std_logic;
 	
+	    CPU_RESET : in std_logic;
+	   
         USB_CTS : out std_logic;
         USB_RTS : in std_logic;
         USB_TX : in std_logic;
@@ -68,14 +70,15 @@ end pcie_design_top;
 architecture pcie_design_top_behavioral of pcie_design_top is
     component design_1 is
         port (
-			pcie_refclk_clk_p : in STD_LOGIC;
-			pcie_refclk_clk_n : in STD_LOGIC;
-			PCIE_PERST_LS : in STD_LOGIC;
-			pcie_7x_mgt_0_rxn : in STD_LOGIC_VECTOR ( 7 downto 0 );
-			pcie_7x_mgt_0_rxp : in STD_LOGIC_VECTOR ( 7 downto 0 );
-			pcie_7x_mgt_0_txn : out STD_LOGIC_VECTOR ( 7 downto 0 );
-			pcie_7x_mgt_0_txp : out STD_LOGIC_VECTOR ( 7 downto 0 );
-			leds_0 : out STD_LOGIC_VECTOR ( 7 downto 0 )
+            CLK_IN_D_0_clk_n : in STD_LOGIC;
+            CLK_IN_D_0_clk_p : in STD_LOGIC;
+            PCIE_PERST_LS : in STD_LOGIC;
+            ext_reset_in_0 : in STD_LOGIC;
+            leds_0 : out STD_LOGIC_VECTOR ( 7 downto 0 );
+            pcie_7x_mgt_0_rxn : in STD_LOGIC_VECTOR ( 7 downto 0 );
+            pcie_7x_mgt_0_rxp : in STD_LOGIC_VECTOR ( 7 downto 0 );
+            pcie_7x_mgt_0_txn : out STD_LOGIC_VECTOR ( 7 downto 0 );
+            pcie_7x_mgt_0_txp : out STD_LOGIC_VECTOR ( 7 downto 0 )
         );
     end component design_1;
 	signal leds : std_logic_vector(7 downto 0);
@@ -120,16 +123,17 @@ begin
 		PCIE_RX5_N,
 		PCIE_RX6_N,
 		PCIE_RX7_N);
-	
+			
 	design_1_i: component design_1
 		port map (
 			PCIE_PERST_LS => PCIE_PERST_LS,
+			ext_reset_in_0 => CPU_RESET,
 			leds_0 => leds,
 			pcie_7x_mgt_0_rxn => PCIE_RX_N,
 			pcie_7x_mgt_0_rxp => PCIE_RX_P,
 			pcie_7x_mgt_0_txn => PCIE_TX_N,
 			pcie_7x_mgt_0_txp => PCIE_TX_P,
-			pcie_refclk_clk_n => PCIE_CLK_QO_N,
-			pcie_refclk_clk_p => PCIE_CLK_QO_P
+			CLK_IN_D_0_clk_n => PCIE_CLK_QO_N,
+			CLK_IN_D_0_clk_p => PCIE_CLK_QO_P
 		);
 end pcie_design_top_behavioral;
