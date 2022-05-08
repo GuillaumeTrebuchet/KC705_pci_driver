@@ -40,7 +40,7 @@ Register map:
 | 0000001C |  DMA status  |
 | 00000020 - 000001FC |  unused  |
   
-Unsupported features:
+# Limitations:
 - Scatter gather is unsupported
 - Address must be 16 bytes aligned on both sides
 - Length must be a 16 byte multiple
