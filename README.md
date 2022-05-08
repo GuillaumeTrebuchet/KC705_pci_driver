@@ -5,6 +5,10 @@ This is just a very simple driver. It's not specific to the KC705 board, and cou
 
 Feel free to reuse, no license, I don't care.
 
+I could have simply used the DMA vivado IP, but the point of the project was to do it on my own.
+There is also one advantage to do it that way.
+The PCIE IP block only support 32bit addressing. That means if you want to access above 4GB system memory address you need to set the AXIBAR2PCIEBAR as dynamic and set it through the control port (check IP doc for info). So if you use the DMA IP, the scatter gather list cannot cross any 4GB boundaries, cause you probably wouldn't be able to change it in the middle of a transfer. Doing your own IP allows to work around those kind of limitations but the gain is rather minimal.
+
 # Tips for driver development
 A few issues I ran into for those new to driver dev.
 - As of now 03/2022, the WDK doesn't have backward compatibility anymore. You need to install a version that is older than your windows version. If you don't,
@@ -31,12 +35,21 @@ Register map:
 | 00000008 |  DMA src address low  |
 | 0000000C |  DMA dst address high  |
 | 00000010 |  DMA dst address low  |
-| 00000014 |  DMA length  |
-| 00000018 |  DMA status  |
+| 00000014 |  DMA direction (0: DEV2MEM, 1: MEM2DEV) |
+| 00000018 |  DMA length  |
+| 0000001C |  DMA status  |
 | 00000020 - 000001FC |  unused  |
   
-The DMA registers are not used for now. 
+Unsupported features:
+- Scatter gather is unsupported
+- Address must be 16 bytes aligned on both sides
+- Length must be a 16 byte multiple
+- DDR memory is not currently used but it's just a question of replacing the BRAM controller by a MIG IP
   
 # Vivado project
 The hardware design is located in KC705_pci_hardware. It is shared in the form of a tcl script that regenerate the project.
 Just run "source pci_test.tcl" in a tcl command prompt to regenerate it. To update it use vivado File -> Project -> Write tcl, then remove absolute paths in the tcl file. 
+
+# Testing
+I didn't do any rigorous testing. The verification IP in vivado didn't seem to do much with VHDL, most functionnality are apparently only available with system verilog. So I chose to use BRAM initialized with data and waveform simulation to check that everything is working as expected. Another way would be to find a BFM or make my own for AXI transactions but the only BFM I came across only supported AXI lite.
+  
