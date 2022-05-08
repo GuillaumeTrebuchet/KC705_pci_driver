@@ -94,6 +94,15 @@ void readmem(HANDLE h, int size)
         std::cout << std::endl;
     }
 }
+void writemem(HANDLE h, const std::vector<uint8_t>& buffer)
+{
+    DWORD BytesWritten = 0;
+
+    BOOL b = WriteFile(h, (LPVOID)buffer.data(), buffer.size(), &BytesWritten, NULL);
+    std::cout << "WriteFile 0x" << buffer.size()
+        << " bytes, result: " << (bool)b << ", bytes written: 0x"
+        << BytesWritten << std::endl;
+}
 #define KC705_IOCTRL_WRITE_REG 0x1
 #define KC705_IOCTRL_READ_REG 0x2
 
@@ -143,6 +152,32 @@ bool ToUInt64(const std::string& s, uint64_t* p)
     *p = u;
     return idx == s.size();
 }
+bool ToUInt8Hex(const std::string& s, uint8_t* p)
+{
+    if (s.size() != 2)
+        return false;
+
+    size_t idx = 0;
+    unsigned long i = std::stoul(s, &idx, 16);
+    *p = (uint8_t)i;
+    return idx == s.size() && s.size() == 2 && i >= 0 && i <= 0xFF;
+}
+bool ReadDataLine(std::vector<uint8_t>& buffer, int ofs)
+{
+    std::string parts[16];
+    for (int i = 0; i < 16; ++i)
+        std::cin >> parts[i];
+
+    for (auto s : parts)
+    {
+        if (!ToUInt8Hex(s, &buffer[ofs++]))
+        {
+            std::cout << "Invalid syntax" << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
 int main()
 {
 	HANDLE h = CreateDevice();
@@ -163,13 +198,32 @@ int main()
         std::string cmd = params[0];
         if (cmd == "h")
         {
+            std::cout << "setoffset <offset> (set <offset> as current offset in the device's memory)" << std::endl;
             std::cout << "readmem <size> (read <size> bytes from the device's memory)" << std::endl;
+            std::cout << "writemem <size> (write <size> bytes to the device's memory, bytes must be input after. 16 bytes per line, 2 hex per byte)" << std::endl;
             std::cout << "writereg <address> <value> (write the given value to the register at address)" << std::endl;
             std::cout << "exit (close the application)" << std::endl;
         }
         else if (cmd == "exit")
         {
             break;
+        }
+        else if (cmd == "setoffset")
+        {
+            if (params.size() != 2)
+            {
+                std::cout << "wrong args" << std::endl;
+                continue;
+            }
+
+            uint64_t ofs = 0;
+            if (!ToUInt64(params[1], &ofs))
+            {
+                std::cout << "unable to read offset" << std::endl;
+                continue;
+            }
+
+            SetFilePointer(h, ofs, NULL, FILE_BEGIN);
         }
         else if(cmd == "readmem")
         {
@@ -192,6 +246,34 @@ int main()
             }
 
             readmem(h, size);
+        }
+        else if (cmd == "writemem")
+        {
+            if (params.size() != 2)
+            {
+                std::cout << "wrong args" << std::endl;
+                continue;
+            }
+
+            uint64_t size = 0;
+            if (!ToUInt64(params[1], &size))
+            {
+                std::cout << "unable to read size" << std::endl;
+                continue;
+            }
+            if (size <= 0 || size >= 0x10000 || (size & 0xF))
+            {
+                std::cout << "size must be between 0 and 0x10000 and a multiple of 16" << std::endl;
+                continue;
+            }
+
+            std::vector<uint8_t> buffer(size);
+            for (int i = 0; i < size / 16; ++i)
+            {
+                if (!ReadDataLine(buffer, i * 16))
+                    continue;
+            }
+            writemem(h, buffer);
         }
         else if (cmd == "writereg")
         {
