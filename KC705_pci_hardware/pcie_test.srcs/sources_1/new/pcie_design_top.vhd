@@ -135,5 +135,9 @@ begin
 			pcie_7x_mgt_0_txp => PCIE_TX_P,
 			CLK_IN_D_0_clk_n => PCIE_CLK_QO_N,
 			CLK_IN_D_0_clk_p => PCIE_CLK_QO_P
+			--pcie_refclk_clk_n => PCIE_CLK_QO_N,
+			--pcie_refclk_clk_p => PCIE_CLK_QO_P--,
+			--sys_diff_clock_clk_n => SYSCLK_N,
+			--sys_diff_clock_clk_p => SYSCLK_P
 		);
 end pcie_design_top_behavioral;
