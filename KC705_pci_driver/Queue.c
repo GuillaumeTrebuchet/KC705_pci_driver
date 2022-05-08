@@ -110,6 +110,52 @@ KC705pcidriverEvtProgramDMA(
     UNREFERENCED_PARAMETER(Context);
     UNREFERENCED_PARAMETER(Direction);
     UNREFERENCED_PARAMETER(SgList);
+
+    PDEVICE_CONTEXT deviceContext = DeviceGetContext(Device);
+    WDFREQUEST request = WdfDmaTransactionGetRequest(Transaction);
+    WDF_REQUEST_PARAMETERS params;
+    WDF_REQUEST_PARAMETERS_INIT(&params);
+    WdfRequestGetParameters(request, &params);
+
+    // Just make sure there is no DMA currently running
+    if (READ_REGISTER_ULONG(&deviceContext->Registers->DmaLength) != 0
+        || SgList->NumberOfElements != 1
+        || (SgList->Elements[0].Address.QuadPart & 0x7F)) // addresses need to be 16bytes aligned
+    {
+        NTSTATUS status = STATUS_SUCCESS;
+        WdfDmaTransactionDmaCompletedFinal(Transaction, 0, &status);
+        WdfDmaTransactionRelease(Transaction);
+        WdfRequestComplete(request, STATUS_UNSUCCESSFUL);
+        return FALSE;
+    }
+#pragma warning(disable:4366)
+    if (params.Type == WdfRequestTypeRead && Direction == WdfDmaDirectionReadFromDevice)
+    {
+        WRITE_REGISTER_ULONG(&deviceContext->Registers->DmaDirection, KC705_DMA_DIRECTION_DEV2MEM);
+        WRITE_REGISTER_ULONG64(&deviceContext->Registers->DmaDstAddress, SgList->Elements[0].Address.QuadPart);
+        WRITE_REGISTER_ULONG64(&deviceContext->Registers->DmaSrcAddress, (ULONGLONG)params.Parameters.Read.DeviceOffset);
+        // This write triggers the DMA operation
+        WRITE_REGISTER_ULONG(&deviceContext->Registers->DmaLength, (ULONG)params.Parameters.Read.Length);
+    }
+    else if (params.Type == WdfRequestTypeWrite && Direction == WdfDmaDirectionWriteToDevice)
+    {
+        WRITE_REGISTER_ULONG(&deviceContext->Registers->DmaDirection, KC705_DMA_DIRECTION_MEM2DEV);
+        WRITE_REGISTER_ULONG64(&deviceContext->Registers->DmaDstAddress, (ULONGLONG)params.Parameters.Write.DeviceOffset);
+        WRITE_REGISTER_ULONG64(&deviceContext->Registers->DmaSrcAddress, SgList->Elements[0].Address.QuadPart);
+        // This write triggers the DMA operation
+        WRITE_REGISTER_ULONG(&deviceContext->Registers->DmaLength, (ULONG)params.Parameters.Write.Length);
+    }
+    else
+    {
+        NTSTATUS status = STATUS_SUCCESS;
+        WdfDmaTransactionDmaCompletedFinal(Transaction, 0, &status);
+        WdfDmaTransactionRelease(Transaction);
+        WdfRequestComplete(request, STATUS_UNSUCCESSFUL);
+        return FALSE;
+    }
+#pragma warning(default:4366)
+
+
     return TRUE;
 }
 VOID KC705pcidriverEvtIoRead(
@@ -124,7 +170,7 @@ VOID KC705pcidriverEvtIoRead(
         "%!FUNC! Queue 0x%p, Request 0x%p Length %d",
         Queue, Request, (int)Length);
 
-    /*WDFDEVICE device = WdfIoQueueGetDevice(Queue);
+    WDFDEVICE device = WdfIoQueueGetDevice(Queue);
     PDEVICE_CONTEXT deviceContext = DeviceGetContext(device);
 
     NTSTATUS status = WdfDmaTransactionInitializeUsingRequest(deviceContext->DmaTransaction, Request, KC705pcidriverEvtProgramDMA, WdfDmaDirectionReadFromDevice);
@@ -134,9 +180,7 @@ VOID KC705pcidriverEvtIoRead(
         return;
     }
 
-    status = WdfDmaTransactionExecute(deviceContext->DmaTransaction, WDF_NO_CONTEXT);*/
-
-    WdfRequestComplete(Request, STATUS_UNSUCCESSFUL);
+    status = WdfDmaTransactionExecute(deviceContext->DmaTransaction, WDF_NO_CONTEXT);
 }
 VOID KC705pcidriverEvtIoWrite(
     _In_ WDFQUEUE Queue,
@@ -150,9 +194,17 @@ VOID KC705pcidriverEvtIoWrite(
         "%!FUNC! Queue 0x%p, Request 0x%p Length %d",
         Queue, Request, (int)Length);
 
-    //WdfDmaTransactionInitializeUsingRequest()
+    WDFDEVICE device = WdfIoQueueGetDevice(Queue);
+    PDEVICE_CONTEXT deviceContext = DeviceGetContext(device);
 
-    WdfRequestComplete(Request, STATUS_UNSUCCESSFUL);
+    NTSTATUS status = WdfDmaTransactionInitializeUsingRequest(deviceContext->DmaTransaction, Request, KC705pcidriverEvtProgramDMA, WdfDmaDirectionWriteToDevice);
+    if (status != STATUS_SUCCESS)
+    {
+        WdfRequestComplete(Request, status);
+        return;
+    }
+
+    status = WdfDmaTransactionExecute(deviceContext->DmaTransaction, WDF_NO_CONTEXT);
 
 }
 VOID
@@ -191,13 +243,13 @@ KC705pcidriverEvtIoDeviceControl(
         }
         // If we actually have a power of 2 registers on the device, the address on the AXI bus would just wrap around if OOB
         // if not I don't really know what happens... the write would probably fail, IDK how the CPU would react to that
-        if (data->address > 0x100)
+        if ((data->address > 0x100) || (data->address & 0x3)) // lets check for alignment as well
         {
             WdfRequestComplete(Request, STATUS_INVALID_PARAMETER);
             return;
         }
 
-        WRITE_REGISTER_BUFFER_ULONG((ULONG*)deviceContext->Registers, &data->value, 1);
+        WRITE_REGISTER_ULONG((ULONG*)(((UCHAR*)deviceContext->Registers) + data->address), data->value);
         WdfRequestComplete(Request, STATUS_SUCCESS);
         break;
     }

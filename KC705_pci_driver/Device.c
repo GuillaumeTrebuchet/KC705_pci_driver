@@ -30,7 +30,12 @@ VOID KC705pcidriverInterruptDPC(_In_ WDFINTERRUPT Interrupt, _In_ WDFOBJECT Asso
 {
     UNREFERENCED_PARAMETER(AssociatedObject);
     PDEVICE_CONTEXT deviceContext = DeviceGetContext(WdfInterruptGetDevice(Interrupt));
+    WDFREQUEST request = WdfDmaTransactionGetRequest(deviceContext->DmaTransaction);
+    NTSTATUS status = STATUS_SUCCESS;
+    WdfDmaTransactionDmaCompleted(deviceContext->DmaTransaction, &status);
+    size_t bytesTransferred = WdfDmaTransactionGetBytesTransferred(deviceContext->DmaTransaction);
     WdfDmaTransactionRelease(deviceContext->DmaTransaction);
+    WdfRequestCompleteWithInformation(request, STATUS_SUCCESS, bytesTransferred);
 }
 
 NTSTATUS
@@ -156,7 +161,7 @@ Return Value:
     UNREFERENCED_PARAMETER(pPciConfig);
 
     // dont really care about that
-    WdfDeviceSetAlignmentRequirement(device, FILE_BYTE_ALIGNMENT);
+    WdfDeviceSetAlignmentRequirement(device, FILE_OCTA_ALIGNMENT);
 
     // create DMA enabler
     WDF_DMA_ENABLER_CONFIG dma_enabler_config;

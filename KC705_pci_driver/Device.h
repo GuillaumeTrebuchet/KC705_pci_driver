@@ -18,15 +18,26 @@ Environment:
 
 EXTERN_C_START
 
+#define KC705_DMA_DIRECTION_DEV2MEM 0
+#define KC705_DMA_DIRECTION_MEM2DEV 1
+
+#pragma pack(push, 1)
 typedef struct
 {
     ULONG Leds;
-    LARGE_INTEGER DmaSrcAddress;
-    LARGE_INTEGER DmaDstAddress;
+    ULONG64 DmaSrcAddress;
+    ULONG64 DmaDstAddress;
+    ULONG DmaDirection;
     ULONG DmaLength;
     ULONG DmaStatus;
 } KC705_REGISTERS, * PKC705_REGISTERS;
+#pragma pack(pop)
 
+typedef struct
+{
+    ULONG64 DeviceAddress;
+    ULONG Length;
+} KC705_DMA_REQUEST_INFO, * PKC705_DMA_REQUEST_INFO;
 //
 // The device context performs the same job as
 // a WDM device extension in the driver frameworks
@@ -42,7 +53,10 @@ typedef struct _DEVICE_CONTEXT
     WDFDMATRANSACTION DmaTransaction;
     WDFINTERRUPT Interrupt;
     PKC705_REGISTERS Registers;
+    KC705_DMA_REQUEST_INFO DmaRequestInfo;
 } DEVICE_CONTEXT, *PDEVICE_CONTEXT;
+
+
 
 //
 // This macro will generate an inline function called DeviceGetContext

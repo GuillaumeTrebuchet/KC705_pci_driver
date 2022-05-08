@@ -35,6 +35,14 @@ WdfCoInstaller$KMDFCOINSTALLERVERSION$.dll=1 ; make sure the number matches with
 [KC705_pci_driver_Device.NT]
 CopyFiles=Drivers_Dir
 
+[KC705_pci_driver_Device.NT.HW]
+AddReg = KC705_pci_driver_Device_AddReg
+
+[KC705_pci_driver_Device_AddReg]
+HKR,Interrupt Management,,0x00000010
+HKR,Interrupt Management\MessageSignaledInterruptProperties,,0x00000010
+HKR,Interrupt Management\MessageSignaledInterruptProperties,MSISupported,0x00010001,1
+
 [Drivers_Dir]
 KC705_pci_driver.sys
 

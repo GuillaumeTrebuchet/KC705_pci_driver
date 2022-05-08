@@ -102,6 +102,8 @@ NTSTATUS KC705pcidriverEvtDevicePrepareHardware(
 {
     PDEVICE_CONTEXT deviceContext = DeviceGetContext(Device);
 
+    ULONG count = WdfCmResourceListGetCount(ResourcesTranslated);
+    UNREFERENCED_PARAMETER(count);
     // Map BARs memory into memory space
     for (ULONG i = 0; i < WdfCmResourceListGetCount(ResourcesTranslated); i++)
     {
@@ -115,7 +117,10 @@ NTSTATUS KC705pcidriverEvtDevicePrepareHardware(
             deviceContext->MemSize = descriptor->u.Memory.Length;
             deviceContext->MemMappedAddress = MmMapIoSpaceEx(descriptor->u.Memory.Start, descriptor->u.Memory.Length, PAGE_READWRITE | PAGE_NOCACHE);
             deviceContext->Registers = (PKC705_REGISTERS)deviceContext->MemMappedAddress;
-            break; // just use the 1st BAR
+        }
+        else if (descriptor->Type == CmResourceTypeInterrupt)
+        {
+            
         }
 
 
